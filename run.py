@@ -9,6 +9,7 @@ from dateutil import parser
 
 FEISHU_WEBHOOK = os.getenv("FEISHU_WEBHOOK")
 
+
 # ===== 中文企业列表，可扩展 =====
 COMPANIES = {
     "万华化学": "https://www.whchem.com/investor/news",
@@ -38,11 +39,9 @@ COMPANIES = {
     
 }
 
-HEADERS = {
-    "User-Agent": "Mozilla/5.0"
-}
+HEADERS = {"User-Agent": "Mozilla/5.0"}
 
-# ===== SQLite 数据库存储去重 =====
+# SQLite 数据库，用于去重和历史存储
 conn = sqlite3.connect("news.db")
 cur = conn.cursor()
 cur.execute("""
@@ -50,19 +49,17 @@ CREATE TABLE IF NOT EXISTS news (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     company TEXT,
     title TEXT,
-    link TEXT UNIQUE,
+    link TEXT,
     date TEXT,
-    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+    UNIQUE(title, link)
 )
 """)
 conn.commit()
 
-# 最近7天
 DAYS_LIMIT = 7
 date_limit = datetime.now() - timedelta(days=DAYS_LIMIT)
 
 def parse_date(text):
-    # 尝试匹配 YYYY-MM-DD 或 YYYY/MM/DD 或 中文日期
     match = re.search(r'(\d{4}[-/年]\d{1,2}[-/月]\d{1,2})', text)
     if match:
         try:
@@ -84,11 +81,10 @@ def get_news(company, url):
                 continue
             if not link.startswith("http"):
                 link = urljoin(url, link)
-            # 尝试获取日期
             text_block = a.parent.get_text()
             news_date = parse_date(text_block)
             if not news_date:
-                news_date = datetime.now()  # 没有日期默认今天
+                news_date = datetime.now()
             if news_date < date_limit:
                 continue
             news_items.append((company, title, link, news_date.strftime("%Y-%m-%d")))
@@ -97,12 +93,15 @@ def get_news(company, url):
     return news_items
 
 def save_news(news_list):
+    saved = []
     for item in news_list:
         try:
-            cur.execute("INSERT INTO news (company,title,link,date) VALUES (?,?,?,?)", item)
+            cur.execute("INSERT OR IGNORE INTO news (company,title,link,date) VALUES (?,?,?,?)", item)
+            saved.append(item)
         except:
             continue
     conn.commit()
+    return saved
 
 def send_to_feishu(news_list):
     if not news_list:
@@ -122,8 +121,8 @@ def main():
     for company, url in COMPANIES.items():
         items = get_news(company, url)
         all_news.extend(items)
-    save_news(all_news)
-    send_to_feishu(all_news)
+    saved_news = save_news(all_news)
+    send_to_feishu(saved_news)
 
 if __name__ == "__main__":
     main()
