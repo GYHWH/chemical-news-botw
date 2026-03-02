@@ -4,10 +4,29 @@ import os
 import sqlite3
 from datetime import datetime, timedelta
 from urllib.parse import urljoin
-import re
 from dateutil import parser
 
 FEISHU_WEBHOOK = os.getenv("FEISHU_WEBHOOK")
+HEADERS = {"User-Agent": "Mozilla/5.0"}
+
+# 最近7天
+DAYS_LIMIT = 7
+date_limit = datetime.now() - timedelta(days=DAYS_LIMIT)
+
+# ===== SQLite 数据库 =====
+conn = sqlite3.connect("news.db")
+cur = conn.cursor()
+cur.execute("""
+CREATE TABLE IF NOT EXISTS news (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    company TEXT,
+    title TEXT,
+    link TEXT,
+    date TEXT,
+    UNIQUE(title, link)
+)
+""")
+conn.commit()
 
 
 # ===== 中文企业列表，可扩展 =====
@@ -39,55 +58,40 @@ COMPANIES = {
     
 }
 
-HEADERS = {"User-Agent": "Mozilla/5.0"}
-
-# SQLite 数据库，用于去重和历史存储
-conn = sqlite3.connect("news.db")
-cur = conn.cursor()
-cur.execute("""
-CREATE TABLE IF NOT EXISTS news (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    company TEXT,
-    title TEXT,
-    link TEXT,
-    date TEXT,
-    UNIQUE(title, link)
-)
-""")
-conn.commit()
-
-DAYS_LIMIT = 7
-date_limit = datetime.now() - timedelta(days=DAYS_LIMIT)
-
 def parse_date(text):
-    match = re.search(r'(\d{4}[-/年]\d{1,2}[-/月]\d{1,2})', text)
-    if match:
-        try:
-            return parser.parse(match.group().replace("年","-").replace("月","-").replace("日",""))
-        except:
-            return None
-    return None
+    try:
+        return parser.parse(text)
+    except:
+        return None
 
-def get_news(company, url):
+def get_news(company, url, li_selector, date_selector):
     news_items = []
     try:
         r = requests.get(url, headers=HEADERS, timeout=10)
         r.encoding = r.apparent_encoding
         soup = BeautifulSoup(r.text, "lxml")
-        for a in soup.find_all("a", href=True):
-            title = a.get_text(strip=True)
-            link = a["href"]
-            if len(title) < 10:
+        for li in soup.select(li_selector):
+            a_tag = li.find("a")
+            if not a_tag:
                 continue
+            title = a_tag.get_text(strip=True)
+            link = a_tag.get("href")
             if not link.startswith("http"):
                 link = urljoin(url, link)
-            text_block = a.parent.get_text()
-            news_date = parse_date(text_block)
-            if not news_date:
-                news_date = datetime.now()
-            if news_date < date_limit:
+
+            # 日期
+            date_tag = li.select_one(date_selector)
+            if date_tag:
+                date_text = date_tag.get_text(strip=True)
+                news_date = parse_date(date_text)
+            else:
+                news_date = None
+
+            if not news_date or news_date < date_limit:
                 continue
+
             news_items.append((company, title, link, news_date.strftime("%Y-%m-%d")))
+
     except Exception as e:
         print(f"抓取 {company} 出错:", e)
     return news_items
@@ -118,11 +122,13 @@ def send_to_feishu(news_list):
 
 def main():
     all_news = []
-    for company, url in COMPANIES.items():
-        items = get_news(company, url)
+    for company, (url, li_selector, date_selector) in COMPANIES.items():
+        items = get_news(company, url, li_selector, date_selector)
         all_news.extend(items)
+
     saved_news = save_news(all_news)
     send_to_feishu(saved_news)
+    print(f"抓取完成，共新增 {len(saved_news)} 条新闻。")
 
 if __name__ == "__main__":
     main()
