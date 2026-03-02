@@ -16,14 +16,14 @@ COMPANIES = {
     "中国石油": "http://www.cnpc.com.cn/cnpc/xwzx/news.shtml",
     "恒力石化": "http://www.hengli.com/xinwen/",
     "荣盛石化": "http://www.rong-sheng.com/news/",
-    "中化集团": "http://www.sinochem.com/xwzx/xwdt/"
-    "美瑞新材":"http://www.miracll.com/news/"
-    "中国石化":"http://www.sinopec.com.cn/list/channel_8/"
-    "恒力石化":"http://www.hengli.com/news/"
-    "荣盛石化":"http://www.cnrsgf.com/news/"
-    "恒逸石化":"http://www.hengyishiye.com/news/"
-    "桐昆股份":"http://www.tongkun.com.cn/news/"
-    "新凤鸣":"http://www.xinfengming.com/news/"
+    "中化集团": "http://www.sinochem.com/xwzx/xwdt/",
+    "美瑞新材":"http://www.miracll.com/news/",
+    "中国石化":"http://www.sinopec.com.cn/list/channel_8/",
+    "恒力石化":"http://www.hengli.com/news/",
+    "荣盛石化":"http://www.cnrsgf.com/news/",
+    "恒逸石化":"http://www.hengyishiye.com/news/",
+    "桐昆股份":"http://www.tongkun.com.cn/news/",
+    "新凤鸣":"http://www.xinfengming.com/news/",
     "东方盛虹":"http://www.ecc.com.cn/news/"
 }
 
