@@ -24,7 +24,18 @@ COMPANIES = {
     "恒逸石化":"http://www.hengyishiye.com/news/",
     "桐昆股份":"http://www.tongkun.com.cn/news/",
     "新凤鸣":"http://www.xinfengming.com/news/",
-    "东方盛虹":"http://www.ecc.com.cn/news/"
+    "东方盛虹":"http://www.ecc.com.cn/news/",
+    "华鲁恒升":"http://www.hlhs.com.cn/news/", 
+    "扬农化工":"http://www.yangnong.com.cn/news/",
+    "巨化股份":"http://www.juhua.com.cn/news/",
+    "中化国际":"http://www.sinochemint.com/news/",
+    "中国化学":"http://www.cnce.com.cn/news/",
+    "卫星化学":"http://www.satellite-chem.com/news/",
+    "龙佰集团":"http://www.lb-group.com/news/",
+    "天赐材料":"http://www.tinci.com/news/",
+    "当升科技":"http://www.easpring.com.cn/news/",
+    "新宙邦":"http://www.capchem.com/news/"
+    
 }
 
 HEADERS = {
