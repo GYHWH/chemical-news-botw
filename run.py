@@ -48,27 +48,22 @@ def extract_recent_news(news_url):
     try:
         r = requests.get(news_url, timeout=8)
         soup = BeautifulSoup(r.text, "lxml")
+
         for a in soup.find_all("a", href=True):
             title = a.get_text(strip=True)
             link = a["href"]
 
-            if len(title) < 10:
+            if len(title) < 15:
                 continue
 
             if not link.startswith("http"):
                 link = news_url.rstrip("/") + "/" + link.lstrip("/")
 
-            text_block = a.parent.get_text()
-            date_match = re.search(r"\d{4}[-/\.]\d{1,2}[-/\.]\d{1,2}", text_block)
-            if date_match:
-                try:
-                    news_date = parser.parse(date_match.group())
-                    if news_date >= datetime.now() - timedelta(days=DAYS_LIMIT):
-                        news_list.append((title, link))
-                except:
-                    continue
+            news_list.append((title, link))
+
     except:
         pass
+
     return news_list
 
 def send_to_feishu(news_items):
