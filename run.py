@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from urllib.parse import urljoin
 from dateutil import parser
 
+# 飞书 Webhook
 FEISHU_WEBHOOK = os.getenv("FEISHU_WEBHOOK")
 HEADERS = {"User-Agent": "Mozilla/5.0"}
 
@@ -28,34 +29,30 @@ CREATE TABLE IF NOT EXISTS news (
 """)
 conn.commit()
 
-
-# ===== 中文企业列表，可扩展 =====
+# ===== 中文化工企业及抓取规则 =====
+# 每家企业: (新闻页URL, li选择器, 日期选择器)
 COMPANIES = {
-    "万华化学": "https://www.whchem.com/investor/news",
-    "中国石化": "http://www.sinopecgroup.com/group/xwzx/xwdt/",
-    "中国石油": "http://www.cnpc.com.cn/cnpc/xwzx/news.shtml",
-    "恒力石化": "http://www.hengli.com/xinwen/",
-    "荣盛石化": "http://www.rong-sheng.com/news/",
-    "中化集团": "http://www.sinochem.com/xwzx/xwdt/",
-    "美瑞新材":"http://www.miracll.com/news/",
-    "中国石化":"http://www.sinopec.com.cn/list/channel_8/",
-    "恒力石化":"http://www.hengli.com/news/",
-    "荣盛石化":"http://www.cnrsgf.com/news/",
-    "恒逸石化":"http://www.hengyishiye.com/news/",
-    "桐昆股份":"http://www.tongkun.com.cn/news/",
-    "新凤鸣":"http://www.xinfengming.com/news/",
-    "东方盛虹":"http://www.ecc.com.cn/news/",
-    "华鲁恒升":"http://www.hlhs.com.cn/news/", 
-    "扬农化工":"http://www.yangnong.com.cn/news/",
-    "巨化股份":"http://www.juhua.com.cn/news/",
-    "中化国际":"http://www.sinochemint.com/news/",
-    "中国化学":"http://www.cnce.com.cn/news/",
-    "卫星化学":"http://www.satellite-chem.com/news/",
-    "龙佰集团":"http://www.lb-group.com/news/",
-    "天赐材料":"http://www.tinci.com/news/",
-    "当升科技":"http://www.easpring.com.cn/news/",
-    "新宙邦":"http://www.capchem.com/news/"
-    
+    "万华化学": ("https://www.whchem.com/investor/news", "div.news-list li", "span.date"),
+    "中国石化": ("http://www.sinopecgroup.com/group/xwzx/xwdt/", "div.news_list li", "span"),
+    "中国石油": ("http://www.cnpc.com.cn/cnpc/xwzx/news.shtml", "ul.news_list li", "span"),
+    "恒力石化": ("http://www.hengli.com/xinwen/", "ul.news_ul li", "span.date"),
+    "荣盛石化": ("http://www.rong-sheng.com/news/", "div.news-list li", "span.date"),
+    "中化集团": ("http://www.sinochem.com/xwzx/xwdt/", "ul.news_list li", "span"),
+    "美瑞新材": ("http://www.miracll.com/news/", "div.newslist li", "span.date"),
+    "恒逸石化": ("http://www.hengyishiye.com/news/", "ul.news_list li", "span"),
+    "桐昆股份": ("http://www.tongkun.com.cn/news/", "div.newlist li", "span"),
+    "新凤鸣": ("http://www.xinfengming.com/news/", "div.news-list li", "span.date"),
+    "东方盛虹": ("http://www.ecc.com.cn/news/", "ul.news_list li", "span"),
+    "华鲁恒升": ("http://www.hlhs.com.cn/news/", "ul.news_list li", "span"),
+    "扬农化工": ("http://www.yangnong.com.cn/news/", "ul.news_list li", "span"),
+    "巨化股份": ("http://www.juhua.com.cn/news/", "ul.news_list li", "span"),
+    "中化国际": ("http://www.sinochemint.com/news/", "ul.news_list li", "span"),
+    "中国化学": ("http://www.cnce.com.cn/news/", "ul.news_list li", "span"),
+    "卫星化学": ("http://www.satellite-chem.com/news/", "ul.news_list li", "span"),
+    "龙佰集团": ("http://www.lb-group.com/news/", "ul.news_list li", "span"),
+    "天赐材料": ("http://www.tinci.com/news/", "ul.news_list li", "span"),
+    "当升科技": ("http://www.easpring.com.cn/news/", "ul.news_list li", "span"),
+    "新宙邦": ("http://www.capchem.com/news/", "ul.news_list li", "span")
 }
 
 def parse_date(text):
@@ -101,7 +98,8 @@ def save_news(news_list):
     for item in news_list:
         try:
             cur.execute("INSERT OR IGNORE INTO news (company,title,link,date) VALUES (?,?,?,?)", item)
-            saved.append(item)
+            if cur.rowcount > 0:  # 只记录新增新闻
+                saved.append(item)
         except:
             continue
     conn.commit()
@@ -126,9 +124,10 @@ def main():
         items = get_news(company, url, li_selector, date_selector)
         all_news.extend(items)
 
-    saved_news = save_news(all_news)
-    send_to_feishu(saved_news)
-    print(f"抓取完成，共新增 {len(saved_news)} 条新闻。")
+    # 只保存并推送新增新闻
+    new_news = save_news(all_news)
+    send_to_feishu(new_news)
+    print(f"抓取完成，共新增 {len(new_news)} 条新闻。")
 
 if __name__ == "__main__":
     main()
