@@ -1,99 +1,62 @@
 import requests
 from bs4 import BeautifulSoup
-from duckduckgo_search import DDGS
-from urllib.parse import urlparse
-from datetime import datetime, timedelta
 import os
-import re
-from dateutil import parser
 
 FEISHU_WEBHOOK = os.getenv("FEISHU_WEBHOOK")
 
-KEYWORDS = [
-    "chemical raw material company press release",
-    "化工 原材料 公司 新闻",
-    "chemical materials manufacturer news"
-]
+COMPANIES = {
+    "BASF": "https://www.basf.com/global/en/media/news-releases.html",
+    "Dow": "https://corporate.dow.com/en-us/news.html",
+    "DuPont": "https://www.dupont.com/news.html",
+    "Covestro": "https://www.covestro.com/en/news",
+    "SABIC": "https://www.sabic.com/en/news"
+}
 
-MAX_RESULTS = 30
-DAYS_LIMIT = 7
-
-def extract_domain(url):
-    parsed = urlparse(url)
-    return f"{parsed.scheme}://{parsed.netloc}"
-
-def search_domains():
-    domains = set()
-    with DDGS() as ddgs:
-        for kw in KEYWORDS:
-            results = ddgs.text(kw, max_results=MAX_RESULTS)
-            for r in results:
-                domains.add(extract_domain(r["href"]))
-    return list(domains)
-
-def find_news_page(domain):
-    paths = ["/news", "/press", "/media", "/newsroom"]
-    for p in paths:
-        url = domain + p
-        try:
-            r = requests.get(url, timeout=5)
-            if r.status_code == 200:
-                return url
-        except:
-            continue
-    return None
-
-def extract_recent_news(news_url):
-    news_list = []
+def get_news(url):
+    news = []
     try:
-        r = requests.get(news_url, timeout=8)
+        r = requests.get(url, timeout=10)
         soup = BeautifulSoup(r.text, "lxml")
-
         for a in soup.find_all("a", href=True):
             title = a.get_text(strip=True)
             link = a["href"]
 
-            if len(title) < 15:
+            if len(title) < 20:
                 continue
 
             if not link.startswith("http"):
-                link = news_url.rstrip("/") + "/" + link.lstrip("/")
+                link = url.rstrip("/") + "/" + link.lstrip("/")
 
-            news_list.append((title, link))
-
+            news.append((title, link))
     except:
         pass
+    return news[:5]
 
-    return news_list
-
-def send_to_feishu(news_items):
-    if not news_items:
-        text = "化工新闻：最近7天没有发现新的企业官网新闻。"
+def send_to_feishu(all_news):
+    if not all_news:
+        text = "今日未抓到企业官网新闻。"
     else:
-        text = "化工新闻（最近7天）：\n\n"
-        for title, link in news_items[:20]:
-            text += f"{title}\n{link}\n\n"
+        text = "化工原材料企业官网最新新闻：\n\n"
+        for company, items in all_news.items():
+            text += f"【{company}】\n"
+            for title, link in items:
+                text += f"{title}\n{link}\n\n"
 
     payload = {
         "msg_type": "text",
-        "content": {
-            "text": f"化工\n{text}"
-        }
+        "content": {"text": text}
     }
 
     requests.post(FEISHU_WEBHOOK, json=payload)
 
 def main():
-    all_news = []
-    domains = search_domains()
+    results = {}
+    for name, url in COMPANIES.items():
+        news = get_news(url)
+        if news:
+            results[name] = news
 
-    for d in domains:
-        news_page = find_news_page(d)
-        if news_page:
-            items = extract_recent_news(news_page)
-            all_news.extend(items)
-
-    send_to_feishu(all_news)
+    send_to_feishu(results)
 
 if __name__ == "__main__":
     main()
